@@ -1,5 +1,7 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace HeroesBattle
 {
@@ -20,7 +22,17 @@ namespace HeroesBattle
         {
             Application.targetFrameRate = 60;
             SetupCamera();
+            EnsureEventSystem();
             Sfx.Init();
+        }
+
+        static void EnsureEventSystem()
+        {
+            if (EventSystem.current != null) return;
+            if (Object.FindFirstObjectByType<EventSystem>() != null) return;
+
+            var go = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            go.transform.SetParent(null);
         }
 
         void Update()
@@ -31,6 +43,13 @@ namespace HeroesBattle
         void Start()
         {
             var args = System.Environment.GetCommandLineArgs();
+
+            if (HasArg(args, "-uitest"))
+            {
+                ShowMenu();
+                StartCoroutine(UiRaycastTest());
+                return;
+            }
 
             if (HasArg(args, "-shotresult"))
             {
@@ -229,6 +248,61 @@ namespace HeroesBattle
             yield return new WaitForSecondsRealtime(0.6f);
             CaptureShot("shot_result.png");
             yield return new WaitForSecondsRealtime(1.0f);
+            Application.Quit();
+        }
+
+        IEnumerator UiRaycastTest()
+        {
+            yield return new WaitForSeconds(0.8f);
+
+            var eventSystem = EventSystem.current;
+            if (eventSystem == null)
+            {
+                Debug.LogError("[UiTest] EventSystem не найден");
+                Application.Quit();
+                yield break;
+            }
+
+            var button = GameObject.Find("NewBattle");
+            if (button == null)
+            {
+                Debug.LogError("[UiTest] Кнопка NewBattle не найдена");
+                Application.Quit();
+                yield break;
+            }
+
+            var rect = (RectTransform)button.transform;
+            Vector3 worldCenter = rect.TransformPoint(rect.rect.center);
+            Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(null, worldCenter);
+
+            var data = new PointerEventData(eventSystem) { position = screenPoint };
+            var hits = new List<RaycastResult>();
+            eventSystem.RaycastAll(data, hits);
+
+            string first = hits.Count > 0 ? hits[0].gameObject.name : "none";
+            bool hitButton = false;
+            for (int i = 0; i < hits.Count; i++)
+            {
+                if (hits[i].gameObject == button || hits[i].gameObject.transform.IsChildOf(button.transform))
+                {
+                    hitButton = true;
+                    break;
+                }
+            }
+
+            Debug.Log("[UiTest] EventSystem=ok, screen=" + screenPoint + ", hits=" + hits.Count +
+                      ", first=" + first + ", hitButton=" + hitButton);
+
+            if (hits.Count > 0)
+            {
+                ExecuteEvents.Execute(hits[0].gameObject, data, ExecuteEvents.pointerClickHandler);
+                yield return null;
+
+                bool opened = GameObject.Find("ArmySelectScreen") != null;
+                Debug.Log("[UiTest] клик через EventSystem → экран сбора армии открыт: " + opened);
+            }
+
+            yield return new WaitForSeconds(0.5f);
             Application.Quit();
         }
 

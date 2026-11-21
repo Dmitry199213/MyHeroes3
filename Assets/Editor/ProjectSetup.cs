@@ -4,6 +4,7 @@ using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 
 namespace HeroesBattle.EditorTools
@@ -41,6 +42,8 @@ namespace HeroesBattle.EditorTools
 
             var game = new GameObject("Game");
             game.AddComponent<GameRoot>();
+
+            var eventSystem = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
 
             EditorSceneManager.SaveScene(scene, ScenePath);
 
